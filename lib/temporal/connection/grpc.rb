@@ -835,6 +835,10 @@ module Temporal
           )
         end
 
+        if options[:ssl_target_name_override]
+          channel_args["grpc.ssl_target_name_override"] = options[:ssl_target_name_override]
+        end
+
         @client = Temporalio::Api::WorkflowService::V1::WorkflowService::Stub.new(
           url,
           credentials,
