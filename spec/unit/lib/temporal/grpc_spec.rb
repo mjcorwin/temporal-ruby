@@ -1,8 +1,15 @@
 require 'temporal/connection/grpc'
+require 'temporal/converter_wrapper'
 require 'temporal/workflow/query_result'
 
 describe Temporal::Connection::GRPC do
   let(:identity) { 'my-identity' }
+  let(:converter) do
+    Temporal::ConverterWrapper.new(
+      Temporal::Configuration::DEFAULT_CONVERTER,
+      Temporal::Configuration::DEFAULT_PAYLOAD_CODEC
+    )
+  end
   let(:binary_checksum) { 'v1.0.0' }
   let(:grpc_stub) { double('grpc stub') }
   let(:grpc_operator_stub) { double('grpc stub') }
@@ -10,12 +17,9 @@ describe Temporal::Connection::GRPC do
   let(:workflow_id) { SecureRandom.uuid }
   let(:run_id) { SecureRandom.uuid }
   let(:now) { Time.now}
+  let(:options) { {} }
 
-  subject { Temporal::Connection::GRPC.new(nil, nil, identity, :this_channel_is_insecure) }
-
-  class TestDeserializer
-    extend Temporal::Concerns::Payloads
-  end
+  subject { Temporal::Connection::GRPC.new(nil, nil, identity, :this_channel_is_insecure, converter, options) }
 
   before do
     allow(subject).to receive(:client).and_return(grpc_stub)
@@ -62,6 +66,7 @@ describe Temporal::Connection::GRPC do
         execution_timeout: 1,
         run_timeout: 2,
         task_timeout: 3,
+        start_delay: 10,
         memo: {},
         search_attributes: {
           'foo-int-attribute' => 256,
@@ -86,6 +91,7 @@ describe Temporal::Connection::GRPC do
         expect(request.workflow_execution_timeout.seconds).to eq(1)
         expect(request.workflow_run_timeout.seconds).to eq(2)
         expect(request.workflow_task_timeout.seconds).to eq(3)
+        expect(request.workflow_start_delay.seconds).to eq(10)
         expect(request.workflow_id_reuse_policy).to eq(:WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE)
         expect(request.search_attributes.indexed_fields).to eq({
           'foo-int-attribute' => Temporalio::Api::Common::V1::Payload.new(data: '256', metadata: { 'encoding' => 'json/plain' }),
@@ -134,6 +140,7 @@ describe Temporal::Connection::GRPC do
         execution_timeout: 1,
         run_timeout: 2,
         task_timeout: 3,
+        start_delay: 10,
         workflow_id_reuse_policy: :allow,
         signal_name: 'the question',
         signal_input: 'what do you get if you multiply six by nine?'
@@ -149,6 +156,7 @@ describe Temporal::Connection::GRPC do
         expect(request.workflow_execution_timeout.seconds).to eq(1)
         expect(request.workflow_run_timeout.seconds).to eq(2)
         expect(request.workflow_task_timeout.seconds).to eq(3)
+        expect(request.workflow_start_delay.seconds).to eq(10)
         expect(request.signal_name).to eq('the question')
         expect(request.signal_input.payloads[0].data).to eq('"what do you get if you multiply six by nine?"')
         expect(request.workflow_id_reuse_policy).to eq(:WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE)
@@ -535,7 +543,7 @@ describe Temporal::Connection::GRPC do
           expect(request.completed_type).to eq(Temporalio::Api::Enums::V1::QueryResultType.lookup(
             Temporalio::Api::Enums::V1::QueryResultType::QUERY_RESULT_TYPE_ANSWERED)
           )
-          expect(request.query_result).to eq(TestDeserializer.to_query_payloads(42))
+          expect(request.query_result).to eq(converter.to_query_payloads(42))
           expect(request.error_message).to eq('')
         end
       end
@@ -606,7 +614,7 @@ describe Temporal::Connection::GRPC do
           expect(request.query_results['1'].result_type).to eq(Temporalio::Api::Enums::V1::QueryResultType.lookup(
             Temporalio::Api::Enums::V1::QueryResultType::QUERY_RESULT_TYPE_ANSWERED)
           )
-          expect(request.query_results['1'].answer).to eq(TestDeserializer.to_query_payloads(42))
+          expect(request.query_results['1'].answer).to eq(converter.to_query_payloads(42))
 
           expect(request.query_results['2']).to be_a(Temporalio::Api::Query::V1::WorkflowQueryResult)
           expect(request.query_results['2'].result_type).to eq(Temporalio::Api::Enums::V1::QueryResultType.lookup(
@@ -880,7 +888,7 @@ describe Temporal::Connection::GRPC do
     end
 
     context "when keepalive_time_ms is passed" do
-      subject { Temporal::Connection::GRPC.new(nil, nil, identity, :this_channel_is_insecure, keepalive_time_ms: 30_000) }
+      let(:options) { { keepalive_time_ms: 30_000 } }
 
       it "passes the option to the channel args" do
         expect(Temporalio::Api::WorkflowService::V1::WorkflowService::Stub).to receive(:new).with(
@@ -897,7 +905,7 @@ describe Temporal::Connection::GRPC do
     end
 
     context "when passing retry_connection" do
-      subject { Temporal::Connection::GRPC.new(nil, nil, identity, :this_channel_is_insecure, retry_connection: true) }
+      let(:options) { { retry_connection: true } }
 
       it "passes the option to the channel args" do
         expect(Temporalio::Api::WorkflowService::V1::WorkflowService::Stub).to receive(:new).with(
@@ -932,8 +940,7 @@ describe Temporal::Connection::GRPC do
     end
 
     context "when passing a custom retry policy" do
-      subject { Temporal::Connection::GRPC.new(nil, nil, identity, :this_channel_is_insecure, retry_policy: retry_policy) }
-
+      let(:options) { { retry_policy: retry_policy } }
       let(:retry_policy) do
         {
           retryableStatusCodes: ["UNAVAILABLE", "INTERNAL"],

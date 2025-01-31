@@ -52,20 +52,21 @@ describe Temporal::Client do
         subject.start_workflow(TestStartWorkflow, 42)
         expect(connection)
           .to have_received(:start_workflow_execution)
-                .with(
-                  namespace: 'default-test-namespace',
-                  workflow_id: an_instance_of(String),
-                  workflow_name: 'TestStartWorkflow',
-                  task_queue: 'default-test-task-queue',
-                  input: [42],
-                  task_timeout: Temporal.configuration.timeouts[:task],
-                  run_timeout: Temporal.configuration.timeouts[:run],
-                  execution_timeout: Temporal.configuration.timeouts[:execution],
-                  workflow_id_reuse_policy: nil,
-                  headers: { 'test' => 'asdf' },
-                  memo: {},
-                  search_attributes: {},
-                )
+          .with(
+            namespace: 'default-test-namespace',
+            workflow_id: an_instance_of(String),
+            workflow_name: 'TestStartWorkflow',
+            task_queue: 'default-test-task-queue',
+            input: [42],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
+            workflow_id_reuse_policy: nil,
+            headers: { 'test' => 'asdf' },
+            memo: {},
+            search_attributes: {},
+            start_delay: 0
+          )
       end
     end
 
@@ -87,13 +88,14 @@ describe Temporal::Client do
             workflow_name: 'TestStartWorkflow',
             task_queue: 'default-test-task-queue',
             input: [42],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: nil,
             headers: {},
             memo: {},
             search_attributes: {},
+            start_delay: 0
           )
       end
 
@@ -109,6 +111,7 @@ describe Temporal::Client do
             workflow_id_reuse_policy: :reject,
             memo: { 'MemoKey1' => 'MemoValue1' },
             search_attributes: { 'SearchAttribute1' => 256 },
+            start_delay: 10
           }
         )
 
@@ -120,13 +123,14 @@ describe Temporal::Client do
             workflow_name: 'test-workflow',
             task_queue: 'test-task-queue',
             input: [42],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: :reject,
             headers: { 'Foo' => 'Bar' },
             memo: { 'MemoKey1' => 'MemoValue1' },
             search_attributes: { 'SearchAttribute1' => 256 },
+            start_delay: 10
           )
       end
 
@@ -147,13 +151,14 @@ describe Temporal::Client do
             workflow_name: 'test-workflow',
             task_queue: 'default-test-task-queue',
             input: [42, { arg_1: 1, arg_2: 2 }],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: nil,
             headers: {},
             memo: {},
             search_attributes: {},
+            start_delay: 0
           )
       end
 
@@ -168,13 +173,14 @@ describe Temporal::Client do
             workflow_name: 'TestStartWorkflow',
             task_queue: 'default-test-task-queue',
             input: [42],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: nil,
             headers: {},
             memo: {},
             search_attributes: {},
+            start_delay: 0
           )
       end
 
@@ -191,13 +197,14 @@ describe Temporal::Client do
             workflow_name: 'TestStartWorkflow',
             task_queue: 'default-test-task-queue',
             input: [42],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: :allow,
             headers: {},
             memo: {},
             search_attributes: {},
+            start_delay: 0
           )
       end
     end
@@ -218,13 +225,14 @@ describe Temporal::Client do
             workflow_name: 'test-workflow',
             task_queue: 'test-task-queue',
             input: [42],
-            task_timeout: Temporal.configuration.timeouts[:task],
-            run_timeout: Temporal.configuration.timeouts[:run],
-            execution_timeout: Temporal.configuration.timeouts[:execution],
+            task_timeout: config.timeouts[:task],
+            run_timeout: config.timeouts[:run],
+            execution_timeout: config.timeouts[:execution],
             workflow_id_reuse_policy: nil,
             headers: {},
             memo: {},
             search_attributes: {},
+            start_delay: 0
           )
       end
     end
@@ -246,15 +254,16 @@ describe Temporal::Client do
           workflow_name: 'TestStartWorkflow',
           task_queue: 'default-test-task-queue',
           input: expected_arguments,
-          task_timeout: Temporal.configuration.timeouts[:task],
-          run_timeout: Temporal.configuration.timeouts[:run],
-          execution_timeout: Temporal.configuration.timeouts[:execution],
+          task_timeout: config.timeouts[:task],
+          run_timeout: config.timeouts[:run],
+          execution_timeout: config.timeouts[:execution],
           workflow_id_reuse_policy: nil,
           headers: {},
           memo: {},
           search_attributes: {},
           signal_name: 'the question',
           signal_input: expected_signal_argument,
+          start_delay: 0
         )
     end
 
@@ -328,9 +337,9 @@ describe Temporal::Client do
           task_queue: 'default-test-task-queue',
           cron_schedule: '* * * * *',
           input: [42],
-          task_timeout: Temporal.configuration.timeouts[:task],
-          run_timeout: Temporal.configuration.timeouts[:run],
-          execution_timeout: Temporal.configuration.timeouts[:execution],
+          task_timeout: config.timeouts[:task],
+          run_timeout: config.timeouts[:run],
+          execution_timeout: config.timeouts[:execution],
           workflow_id_reuse_policy: nil,
           memo: {},
           search_attributes: {},
@@ -482,7 +491,7 @@ describe Temporal::Client do
       it "completes and returns a #{type}" do
         payload = Temporalio::Api::Common::V1::Payloads.new(
           payloads: [
-            Temporal.configuration.converter.to_payload(expected_result)
+            config.converter.to_payload(expected_result)
           ],
         )
         completed_event = Fabricate(:workflow_completed_event, result: payload)
@@ -759,7 +768,7 @@ describe Temporal::Client do
       expect(connection)
         .to have_received(:terminate_workflow_execution)
         .with(
-          namespace: 'default-namespace',
+          namespace: 'default-test-namespace',
           workflow_id: 'my-workflow',
           reason: 'just stop it',
           details: nil,

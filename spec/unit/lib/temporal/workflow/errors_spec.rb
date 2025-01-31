@@ -27,6 +27,13 @@ class MyFancyError < Exception
 end
 
 describe Temporal::Workflow::Errors do
+  let(:converter) do
+    Temporal::ConverterWrapper.new(
+      Temporal::Configuration::DEFAULT_CONVERTER,
+      Temporal::Configuration::DEFAULT_PAYLOAD_CODEC
+    )
+  end
+
   describe '.generate_error' do
     it "instantiates properly when the client has the error" do
       message = "An error message"
@@ -38,7 +45,7 @@ describe Temporal::Workflow::Errors do
         error_class: SomeError.to_s
       )
 
-      e = Temporal::Workflow::Errors.generate_error(failure)
+      e = Temporal::Workflow::Errors.generate_error(failure, converter)
       expect(e).to be_a(SomeError)
       expect(e.message).to eq(message)
       expect(e.backtrace).to eq(stack_trace)
@@ -47,9 +54,9 @@ describe Temporal::Workflow::Errors do
 
     it 'correctly deserializes a complex error' do
       error = MyFancyError.new('foo', 'bar')
-      failure = Temporal::Connection::Serializer::Failure.new(error, serialize_whole_error: true).to_proto
+      failure = Temporal::Connection::Serializer::Failure.new(error, converter, serialize_whole_error: true).to_proto
 
-      e = Temporal::Workflow::Errors.generate_error(failure)
+      e = Temporal::Workflow::Errors.generate_error(failure, converter)
       expect(e).to be_a(MyFancyError)
       expect(e.foo).to eq('foo')
       expect(e.bar).to eq('bar')
@@ -68,7 +75,7 @@ describe Temporal::Workflow::Errors do
         error_class: 'NonexistentError',
       )
 
-      e = Temporal::Workflow::Errors.generate_error(failure)
+      e = Temporal::Workflow::Errors.generate_error(failure, converter)
       expect(e).to be_a(StandardError)
       expect(e.message).to eq("NonexistentError: An error message")
       expect(e.backtrace).to eq(stack_trace)
@@ -94,7 +101,7 @@ describe Temporal::Workflow::Errors do
         error_class: ErrorWithTwoArgs.to_s,
       )
 
-      e = Temporal::Workflow::Errors.generate_error(failure)
+      e = Temporal::Workflow::Errors.generate_error(failure, converter)
       expect(e).to be_a(StandardError)
       expect(e.message).to eq("ErrorWithTwoArgs: An error message")
       expect(e.backtrace).to eq(stack_trace)
@@ -102,7 +109,7 @@ describe Temporal::Workflow::Errors do
         .to have_received(:error)
         .with(
           "Could not instantiate original error. Defaulting to StandardError. "\
-          "Make sure the worker running your activities is setting Temporal.configuration.use_error_serialization_v2. "\
+          "Make sure the worker running your activities is configured with use_error_serialization_v2. "\
           "If so, make sure the original error serialized by searching your logs for 'unserializable_error'. "\
           "If not, you're using legacy serialization, and it's likely that "\
           "your error's initializer takes something other than exactly one positional argument.",
@@ -127,7 +134,7 @@ describe Temporal::Workflow::Errors do
         error_class: ErrorThatRaisesInInitialize.to_s,
       )
 
-      e = Temporal::Workflow::Errors.generate_error(failure)
+      e = Temporal::Workflow::Errors.generate_error(failure, converter)
       expect(e).to be_a(StandardError)
       expect(e.message).to eq("ErrorThatRaisesInInitialize: An error message")
       expect(e.backtrace).to eq(stack_trace)
@@ -135,7 +142,7 @@ describe Temporal::Workflow::Errors do
         .to have_received(:error)
         .with(
           "Could not instantiate original error. Defaulting to StandardError. "\
-          "Make sure the worker running your activities is setting Temporal.configuration.use_error_serialization_v2. "\
+          "Make sure the worker running your activities is configured with use_error_serialization_v2. "\
           "If so, make sure the original error serialized by searching your logs for 'unserializable_error'. "\
           "If not, you're using legacy serialization, and it's likely that "\
           "your error's initializer takes something other than exactly one positional argument.",

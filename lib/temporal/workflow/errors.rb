@@ -3,11 +3,9 @@ require 'temporal/errors'
 module Temporal
   class Workflow
     class Errors
-      extend Concerns::Payloads
-
       # Convert a failure returned from the server to an Error to raise to the client
       # failure: Temporalio::Api::Failure::V1::Failure
-      def self.generate_error(failure, default_exception_class = StandardError)
+      def self.generate_error(failure, converter, default_exception_class = StandardError)
         case failure.failure_info
         when :application_failure_info
 
@@ -25,10 +23,10 @@ module Temporal
           end
           begin
             details = failure.application_failure_info.details
-            exception_or_message = from_details_payloads(details)
+            exception_or_message = converter.from_details_payloads(details)
             # v1 serialization only supports StandardErrors with a single "message" argument.
             # v2 serialization supports complex errors using our converters to serialize them.
-            # enable v2 serialization in activities with Temporal.configuration.use_error_serialization_v2
+            # enable v2 serialization in activities with Temporal::Configuration#use_error_serialization_v2
             if exception_or_message.is_a?(Exception)
               exception = exception_or_message
             else
@@ -39,7 +37,7 @@ module Temporal
             exception = default_exception_class.new(message)
             Temporal.logger.error(
               "Could not instantiate original error. Defaulting to StandardError. Make sure the worker running " \
-              "your activities is setting Temporal.configuration.use_error_serialization_v2. If so, make sure the " \
+              "your activities is configured with use_error_serialization_v2. If so, make sure the " \
               "original error serialized by searching your logs for 'unserializable_error'. If not, you're using "\
               "legacy serialization, and it's likely that "\
               "your error's initializer takes something other than exactly one positional argument.",
@@ -59,7 +57,7 @@ module Temporal
           TimeoutError.new("Timeout type: #{failure.timeout_failure_info.timeout_type.to_s}")
         when :canceled_failure_info
           # TODO: Distinguish between different entity cancellations
-          StandardError.new(from_payloads(failure.canceled_failure_info.details))
+          StandardError.new(converter.from_payloads(failure.canceled_failure_info.details))
         else
           StandardError.new(failure.message)
         end
